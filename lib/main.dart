@@ -1,6 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'SpeedRegulator.dart';
+import 'Posture.dart';
 import 'package:esense_flutter/esense.dart';
 
 import 'package:flutter/services.dart';
@@ -23,6 +24,8 @@ class _MyAppState extends State<MyApp> {
   // the name of the eSense device to connect to -- change this to your own device.
   // Only the right one is needed.
   String eSenseNameRight = 'eSense-0584';
+
+  AppLogic appLogic = AppLogic();
 
   @override
   void initState() {
@@ -106,18 +109,18 @@ class _MyAppState extends State<MyApp> {
 
   void _startListenToSensorEvents() async {
     print("entered startListeningToSensorEvents() fct()");
-    // subscribe to sensor event from the eSense device
+    print('sampling: \t$sampling');
+    // array mit 3 werten
     if (!sampling) {
       subscription = ESenseManager.sensorEvents.listen((event) {
         List<int> acc = event.accel;
-
-        // steps
-        print("steps: ${speedRegulator.steps}");
+        appLogic.postureCorrect = appLogic.checkIfPostureCorrect(acc);
+        bool posture = appLogic.getPostureCorrect();
+        print('posture correct: \t$posture');
 
         print('SENSOR event: $event');
         setState(() {
           _event = event.toString();
-          speedRegulator.countSteps(acc[2]);
         });
       });
       sampling = true;
@@ -125,7 +128,6 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _pauseListenToSensorEvents() {
-    speedRegulator.steps = 0;
     subscription.cancel();
     setState(() {
       sampling = false;
@@ -159,16 +161,14 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // double targetRunningSpeed = 50.0;
-  bool pacingSpeedGettingTracked = false;
-
   // need to be an instance variable to be able to change when widget get rebuild
   String connectedText = "Connected";
   String disconnectedText = "Connect to bluetooth";
-  SpeedRegulator speedRegulator = new SpeedRegulator(50.0);
+
+  static const String startListeningToSensorEventsText = "Start working";
 
   Widget build(BuildContext context) {
-    const String title = "Jogging Pacer";
+    const String title = "MyTitle";
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -177,91 +177,45 @@ class _MyAppState extends State<MyApp> {
       home: Scaffold(
         appBar: AppBar(
             title: const Text(title),
-            // Use same color as strava
-            backgroundColor: Colors.deepOrange),
+            // set color
+            backgroundColor: Colors.greenAccent),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Padding(
-                padding: EdgeInsets.only(bottom: 30),
-                child: Text(
-                  "RUNNING SPEED",
-                  style: TextStyle(fontSize: 30.0, fontWeight: FontWeight.w900),
-                  textAlign: TextAlign.center,
+              Text(appLogic.getPostureText()),
+              Image(image: AssetImage('assets/posture_good.png')),
+              Text(''),
+              Text('eSense Device Status: \t$_deviceStatus'),
+              Text('eSense Device Name: \t$_deviceName'),
+              Text('posture correct: \t$appLogic.postureCorrect'),
+              RaisedButton(
+                onPressed: () => ListeningToSensorEventsButtonEffect(),
+                textColor: Colors.white,
+                padding: const EdgeInsets.all(0.0),
+                child: Container(
+                  padding: const EdgeInsets.all(10.0),
+                  child:
+                  const Text(startListeningToSensorEventsText, style: TextStyle(fontSize: 20)),
                 ),
               ),
-              Text(
-                speedRegulator.targetRunningSpeed.toInt().toString(),
-                style: TextStyle(fontSize: 40.0, fontWeight: FontWeight.w900),
-              ),
-              Slider(
-                value: speedRegulator.targetRunningSpeed,
-                min: 0,
-                max: 100,
-                divisions: 10,
-                activeColor: Colors.pink,
-                onChanged: (double value) {
-                  setState(() {
-                    speedRegulator.targetRunningSpeed = value;
-                    speedRegulator.calculateTargetstepsPerSecond();
-                  });
-                },
-              ),
-              Padding(
-                padding: EdgeInsets.only(bottom: 100),
-                child: Text(
-                  "Just slide the Slider to increase\nor decrease target running speed",
-                  style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w900),
+              RaisedButton(
+                onPressed: () => connectToBLEButtonEffect(context),
+                textColor: Colors.white,
+                padding: const EdgeInsets.all(0.0),
+                child: Container(
+                  padding: const EdgeInsets.all(10.0),
+                  child:
+                  Text(
+                    // vary text according to the connection status
+                      (ESenseManager.connected)
+                          ? connectedText
+                          : disconnectedText,
+                      style: TextStyle(color: Colors.blue)),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.only(bottom: 30),
-                child: Transform.scale(
-                    scale: 5,
-                    child: IconButton(
-                        icon:
-                            Icon(pacingSpeedGettingTracked ? Icons.pause : Icons.play_arrow),
-                        tooltip: "start counting steps",
-                        onPressed: () {
-                          print("play button pressed");
-                          setState(() {
-                            pacingSpeedGettingTracked = !pacingSpeedGettingTracked;
-                            ListeningToSensorEventsButtonEffect();
-                            speedRegulator.handleSpeedCheckTimer();
-                          });
-                        })),
-              ),
-              Text("Start/Stop Running!"),
-              Text(''),
-              // Text('eSense Device Status: \t$_deviceStatus'),
-              // Text('eSense Device Name: \t$_deviceName'),
-              Text('steps: \t${speedRegulator.steps}'),
-              Text('stepsPerTime: \t${speedRegulator.stepsPerTime}'),
-              Text('targetStepsPerTime: \t${speedRegulator.targetStepsPerSecond}'),
-              Text(''),
               // Text(''),
               // Text('$_event'),
-
-              // start listening button
-              FloatingActionButton(
-                // a floating button that starts/stops listening to sensor events.
-                // is disabled until we're connected to the device.
-                onPressed: () => connectToBLEButtonEffect(context),
-                tooltip: 'Listen to eSense sensors',
-                child: (!ESenseManager.connected)
-                    ? Icon(Icons.play_arrow)
-                    : Icon(Icons.pause),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 10.0),
-                child: Text(
-                    // vary text according to the connection status
-                    (ESenseManager.connected)
-                        ? connectedText
-                        : disconnectedText,
-                    style: TextStyle(color: Colors.blue)),
-              ),
             ],
           ),
         ),
