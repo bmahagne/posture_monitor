@@ -160,13 +160,21 @@ class _MyAppState extends State<MyApp> {
       print("already connected to eSense via bluetooth");
     }
   }
+  String getColor() {
+    // only try connection if not already connected
+    if (appLogic.getPostureCorrect()) {
+     return "green";
+    } else {
+      return "red";
+    }
+  }
 
   // need to be an instance variable to be able to change when widget get rebuild
   String connectedText = "Connected";
   String disconnectedText = "Connect to bluetooth";
 
   static const String startListeningToSensorEventsText = "Start working";
-
+  static const String stopListeningToSensorEventsText = "Stop working";
   Widget build(BuildContext context) {
     const String title = "MyTitle";
     SystemChrome.setPreferredOrientations([
@@ -183,8 +191,18 @@ class _MyAppState extends State<MyApp> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Text(appLogic.getPostureText()),
-              Image(image: AssetImage('assets/posture_good.png')),
+              RaisedButton(
+                onPressed: () => ListeningToSensorEventsButtonEffect(),
+                textColor: appLogic.postureCorrect ? Colors.white : Colors.white,
+                color: appLogic.postureCorrect ? Colors.green : Colors.red,
+                padding: const EdgeInsets.all(0.0),
+                child: Container(
+                  padding: const EdgeInsets.all(10.0),
+                  child:
+                  Text(appLogic.getPostureText(), style: TextStyle(fontSize: 20),),
+                ),
+              ),
+              Image(image: (appLogic.postureCorrect)? AssetImage('assets/posture_good.png'): AssetImage('assets/posture_bad.png')),
               Text(''),
               Text('eSense Device Status: \t$_deviceStatus'),
               Text('eSense Device Name: \t$_deviceName'),
@@ -196,7 +214,10 @@ class _MyAppState extends State<MyApp> {
                 child: Container(
                   padding: const EdgeInsets.all(10.0),
                   child:
-                  const Text(startListeningToSensorEventsText, style: TextStyle(fontSize: 20)),
+                  Text(
+                      (sampling)
+                          ? stopListeningToSensorEventsText
+                          : startListeningToSensorEventsText, style: TextStyle(fontSize: 20)),
                 ),
               ),
               RaisedButton(
